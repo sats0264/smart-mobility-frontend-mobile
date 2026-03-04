@@ -1,10 +1,24 @@
-import { Tabs } from 'expo-router';
-import { History, Home, MapPin } from 'lucide-react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { History, Home, MapPin, User, Ticket } from 'lucide-react-native';
 import React from 'react';
-import { Platform } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
   return (
     <Tabs
       screenOptions={{
@@ -24,7 +38,7 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontWeight: '700',
-          fontSize: 12,
+          fontSize: 10, // Slightly smaller to fit 5 tabs comfortably
         },
         headerShown: false,
       }}>
@@ -43,10 +57,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="catalogue"
+        options={{
+          title: 'Offres',
+          tabBarIcon: ({ color }) => <Ticket size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="historique"
         options={{
           title: 'Historique',
           tabBarIcon: ({ color }) => <History size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profil"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
       />
     </Tabs>
