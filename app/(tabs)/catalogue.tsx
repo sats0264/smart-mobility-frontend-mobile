@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BadgeCheck, Calendar, ChevronLeft, CreditCard, Sparkles, Train, Zap, Bus } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient, CatalogService, ENDPOINTS } from '../../services/api';
@@ -53,6 +53,7 @@ export default function CatalogueScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedTab, setSelectedTab] = useState<'subscriptions' | 'passes'>('subscriptions');
+    const [purchasedIds, setPurchasedIds] = useState<Record<string, boolean>>({});
 
     const mapOffer = (offer: any, type: 'subscription' | 'pass') => {
         const transport = (offer.applicableTransport || 'ALL').toUpperCase();
@@ -134,6 +135,27 @@ export default function CatalogueScreen() {
         fetchCatalog();
     }, []);
 
+    const handleBuy = async (item: any) => {
+        // item.id is like `${type}-${offer.id}` or for mock may be string id
+        const parts = String(item.id).split('-');
+        const type = item.type || parts[0] || 'pass';
+        const rawId = parts.length > 1 ? parts.slice(1).join('-') : item.originalId || item.id;
+        const offerIdNum = Number(rawId);
+
+        try {
+            if (type === 'pass') {
+                await CatalogService.buyPass(isNaN(offerIdNum) ? rawId : offerIdNum);
+            } else {
+                await CatalogService.buySubscription(isNaN(offerIdNum) ? rawId : offerIdNum);
+            }
+            setPurchasedIds(prev => ({ ...prev, [item.id]: true }));
+            Alert.alert('Achat réussi', `${item.name} a été ajouté à votre compte.`);
+        } catch (e: any) {
+            console.error('Achat erreur', e);
+            Alert.alert('Erreur', e.message || 'Échec de l\'achat.');
+        }
+    };
+
     const filteredItems = catalogItems.filter(item => {
         if (selectedTab === 'subscriptions') return item.type === 'subscription' || !item.type; // Fallback for mocks
         return item.type === 'pass';
@@ -214,9 +236,14 @@ export default function CatalogueScreen() {
                                         <Text style={styles.metaText}>Valable {item.durationDays} jours</Text>
                                     </View>
 
-                                    <TouchableOpacity style={styles.buyBtn}>
+                                    <TouchableOpacity
+                                        style={[styles.buyBtn, purchasedIds[item.id] && { opacity: 0.6 }]}
+                                        onPress={() => !purchasedIds[item.id] && handleBuy(item)}
+                                    >
                                         <CreditCard size={16} color={item.color} />
-                                        <Text style={[styles.buyBtnText, { color: item.color }]}>ACHETER</Text>
+                                        <Text style={[styles.buyBtnText, { color: item.color }]}>
+                                            {purchasedIds[item.id] ? (selectedTab === 'passes' ? 'POSSEDÉ' : 'ACHETÉ') : 'ACHETER'}
+                                        </Text>
                                     </TouchableOpacity>
                                 </View>
                             </LinearGradient>

@@ -15,6 +15,9 @@ export const ENDPOINTS = {
     PRICING: `${BASE_URL}:${GATEWAY_PORT}/api/pricing`,
     ACCOUNT: `${BASE_URL}:${GATEWAY_PORT}/accounts`,
     CATALOG: `${BASE_URL}:${GATEWAY_PORT}/api/catalog`,
+    NOTIFICATION: `${BASE_URL}:${GATEWAY_PORT}/notifications`,
+    PASSES: `${BASE_URL}:${GATEWAY_PORT}/api/passes`,
+    SUBSCRIPTIONS: `${BASE_URL}:${GATEWAY_PORT}/api/subscriptions`,
 };
 
 // Gestionnaires pour le rafraîchissement des tokens
@@ -246,6 +249,22 @@ export const CatalogService = {
     // Récupérer le catalogue de pass
     getCatalogPass: async () => {
         return apiClient(`${ENDPOINTS.CATALOG}/pass-offers`);
+    },
+
+    // Acheter un pass depuis le catalogue (le gateway doit fournir le contexte user)
+    buyPass: async (offerId: number) => {
+        return apiClient(`${ENDPOINTS.PASSES}/me/buy/${offerId}`, { method: 'POST' });
+    },
+
+    // Acheter un abonnement depuis le catalogue
+    buySubscription: async (offerId: number) => {
+        return apiClient(`${ENDPOINTS.SUBSCRIPTIONS}/me/buy/${offerId}`, { method: 'POST' });
     }
 };
 
+export const NotificationService = {
+    // Récupérer les notifications de l'utilisateur
+    getUserNotifications: async (userId: string) => {
+        return apiClient(`${ENDPOINTS.NOTIFICATION}/user/${userId}`);
+    }
+};
