@@ -1,20 +1,70 @@
 import { useRouter } from 'expo-router';
-import { AlertTriangle, CheckCircle2, ChevronLeft, Info } from 'lucide-react-native';
-import React from 'react';
-import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AlertTriangle, CheckCircle2, ChevronLeft, Info, BellOff } from 'lucide-react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from 'react-native';
 import { Colors } from '../constants/Colors';
-
-const NOTIFICATIONS = [
-    { id: '1', title: 'Solde faible', message: 'Il vous reste moins de 2.000 CFA sur votre compte.', type: 'warning', date: 'Il y a 2h', icon: AlertTriangle, color: Colors.warning },
-    { id: '2', title: 'Votre pass arrive à expiration', message: 'Pensez à renouveler votre pass TER avant demain.', type: 'info', date: 'Il y a 5h', icon: Info, color: Colors.primary },
-    { id: '3', title: 'Voyage terminé', message: 'Merci d\'avoir utilisé le TER. 1.500 CFA ont été débités.', type: 'success', date: 'Hier', icon: CheckCircle2, color: Colors.success },
-    { id: '4', title: 'Perturbation TER', message: 'Retards de 10 min prévus sur la ligne Dakar-Diamniadio.', type: 'warning', date: 'Hier', icon: AlertTriangle, color: Colors.error },
-];
+import { useAuth } from '../context/AuthContext';
+import { NotificationService } from '../services/api';
 
 export default function NotificationsScreen() {
     const router = useRouter();
+    const { user, isLoading: authLoading } = useAuth();
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
+    const getNotifConfig = (type: string) => {
+        switch (type) {
+            case 'PAYMENT':
+                return { icon: CheckCircle2, color: '#22C55E', title: 'Paiement' };
+            case 'ACCOUNT_CREDITED':
+                return { icon: CheckCircle2, color: Colors.primary, title: 'Rechargement' };
+            case 'LOW_BALANCE':
+                return { icon: AlertTriangle, color: Colors.warning, title: 'Solde Faible' };
+            default:
+                return { icon: Info, color: Colors.textSecondary, title: 'Information' };
+        }
+    };
 
+    const fetchNotifications = useCallback(async (showLoading = true) => {
+        if (!user?.id) {
+            if (!authLoading) setIsLoading(false);
+            return;
+        }
+        if (showLoading) setIsLoading(true);
+        try {
+            const data = await NotificationService.getUserNotifications(user.id);
+            setNotifications(data || []);
+        } catch (error) {
+            console.error("Failed to fetch notifications", error);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+        }
+    }, [user?.id, authLoading]);
+
+    useEffect(() => {
+        if (!authLoading) {
+            fetchNotifications(true);
+        }
+    }, [authLoading, fetchNotifications]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchNotifications(false);
+    }, [fetchNotifications]);
+
+    const formatTimeAgo = (dateString: string) => {
+        const now = new Date();
+        const past = new Date(dateString);
+        const diffMs = now.getTime() - past.getTime();
+        const diffMin = Math.round(diffMs / 60000);
+
+        if (diffMin < 60) return `Il y a ${diffMin} min`;
+        const diffHr = Math.round(diffMin / 60);
+        if (diffHr < 24) return `Il y a ${diffHr}h`;
+        return past.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -25,25 +75,43 @@ export default function NotificationsScreen() {
                 <Text style={styles.title}>Notifications</Text>
             </View>
 
-            <FlatList
-                data={NOTIFICATIONS}
-                renderItem={({ item }) => (
-                    <View style={styles.notifItem}>
-                        <View style={[styles.iconBox, { backgroundColor: item.color + '15' }]}>
-                            <item.icon size={24} color={item.color} />
-                        </View>
-                        <View style={styles.notifContent}>
-                            <View style={styles.notifHeader}>
-                                <Text style={styles.notifTitle}>{item.title}</Text>
-                                <Text style={styles.notifDate}>{item.date}</Text>
+            {isLoading ? (
+                <View style={styles.loadingBox}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={notifications}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+                    }
+                    renderItem={({ item }) => {
+                        const config = getNotifConfig(item.type);
+                        return (
+                            <View style={styles.notifItem}>
+                                <View style={[styles.iconBox, { backgroundColor: config.color + '15' }]}>
+                                    <config.icon size={24} color={config.color} />
+                                </View>
+                                <View style={styles.notifContent}>
+                                    <View style={styles.notifHeader}>
+                                        <Text style={styles.notifTitle}>{config.title}</Text>
+                                        <Text style={styles.notifDate}>{formatTimeAgo(item.createdAt)}</Text>
+                                    </View>
+                                    <Text style={styles.notifMessage}>{item.message}</Text>
+                                </View>
                             </View>
-                            <Text style={styles.notifMessage}>{item.message}</Text>
+                        );
+                    }}
+                    keyExtractor={item => item.id.toString()}
+                    contentContainerStyle={styles.listContent}
+                    ListEmptyComponent={
+                        <View style={styles.emptyBox}>
+                            <BellOff size={48} color={Colors.border} />
+                            <Text style={styles.emptyText}>Aucune notification</Text>
                         </View>
-                    </View>
-                )}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-            />
+                    }
+                />
+            )}
         </SafeAreaView>
     );
 }
@@ -116,5 +184,22 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Colors.textSecondary,
         lineHeight: 20,
+    },
+    loadingBox: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyBox: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingTop: 100,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: Colors.textSecondary,
+        marginTop: 12,
+        fontWeight: '600',
     },
 });
