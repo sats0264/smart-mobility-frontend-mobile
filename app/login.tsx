@@ -1,16 +1,17 @@
 import { useRouter } from 'expo-router';
-import { Lock, User } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Lock } from 'lucide-react-native';
+import React from 'react';
+import { KeyboardAvoidingView, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { Button } from '../components/Button';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
     const router = useRouter();
     const { login, isAuthenticated, isLoading } = useAuth();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const insets = useSafeAreaInsets();
+
 
     React.useEffect(() => {
         if (isAuthenticated) {
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
@@ -41,33 +42,6 @@ export default function LoginScreen() {
                 </View>
 
                 <View style={styles.form}>
-                    <View style={styles.inputCard}>
-                        <View style={styles.inputRow}>
-                            <User size={20} color={Colors.primary} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Nom d'utilisateur"
-                                value={email}
-                                onChangeText={setEmail}
-                            />
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.inputRow}>
-                            <Lock size={20} color={Colors.primary} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Mot de passe"
-                                secureTextEntry
-                                value={password}
-                                onChangeText={setPassword}
-                            />
-                        </View>
-                    </View>
-
-                    <TouchableOpacity style={styles.forgotPass}>
-                        <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
-                    </TouchableOpacity>
-
                     <Button
                         title="Se connecter"
                         onPress={handleLogin}
